@@ -64,6 +64,7 @@
     display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
   }
   .face .word { font-size: 40px; font-weight: 700; text-align: center; }
+  .face .phonetic { color: var(--muted); font-size: 20px; margin-top: 10px; }
   .face .hint { position: absolute; bottom: 16px; color: var(--muted); font-size: 13px; }
   .back { transform: rotateY(180deg); background: #fff7f2; }
   .back .cn { font-size: 30px; font-weight: 700; color: var(--accent); text-align: center; }
@@ -116,6 +117,27 @@
   .wrong-item .cn { color: var(--muted); font-size:14px; margin-left:8px; }
   .wrong-item .acts button { border:none; border-radius:10px; padding:8px 10px; margin-left:6px; cursor:pointer; font-size:14px; }
   .empty { color:#fff; opacity:.85; text-align:center; padding:20px; }
+  .wrong-item.done { opacity:.55; }
+  .wrong-item .tag { font-size:12px; color:#fff; background:var(--red); border-radius:8px; padding:2px 6px; margin-left:8px; }
+  .wrong-actions { width:100%; display:flex; gap:10px; margin-bottom:12px; flex-wrap:wrap; }
+  .wrong-actions button { flex:1; border:none; border-radius:12px; padding:12px; font-size:15px; font-weight:600; cursor:pointer; }
+
+  /* 默写 */
+  .dict-input { width:100%; border:none; border-radius:14px; padding:16px; font-size:22px; text-align:center; margin:14px 0 10px; box-shadow:0 6px 14px rgba(0,0,0,.12); }
+  .result-box .ok { color: var(--green); font-weight:700; }
+  .result-box .ng { color: var(--red); font-weight:700; }
+
+  /* 统计 */
+  .stats-grid { width:100%; display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  .stat-card { background:#fff; border-radius:16px; padding:18px; text-align:center; box-shadow:0 6px 16px rgba(0,0,0,.12); }
+  .stat-card .num { font-size:30px; font-weight:800; color:var(--bg1); }
+  .stat-card .lbl { color:var(--muted); font-size:13px; margin-top:4px; }
+  .stats-books { width:100%; background:#fff; border-radius:16px; padding:16px; margin-top:14px; box-shadow:0 6px 16px rgba(0,0,0,.12); }
+  .bookrow { display:flex; align-items:center; gap:10px; margin:8px 0; font-size:14px; }
+  .bookrow .bar { flex:1; height:12px; background:#eee; border-radius:8px; overflow:hidden; }
+  .bookrow .bar > i { display:block; height:100%; background:var(--green); }
+  .bookrow .bl { width:64px; color:var(--text); }
+  .bookrow .bn { width:70px; text-align:right; color:var(--muted); }
 
   footer { color:#fff; opacity:.75; font-size:12px; margin-top: 24px; text-align:center; }
 </style>
@@ -131,7 +153,9 @@
     <button id="tab-learn" class="active" onclick="switchTab('learn')">📖 学单词</button>
     <button id="tab-quiz" onclick="switchTab('quiz')">✏️ 测验</button>
     <button id="tab-speak" onclick="switchTab('speak')">🎤 跟读</button>
+    <button id="tab-dict" onclick="switchTab('dict')">✍️ 默写</button>
     <button id="tab-wrong" onclick="switchTab('wrong')">❌ 错词本</button>
+    <button id="tab-stats" onclick="switchTab('stats')">📊 统计</button>
   </div>
 
   <div class="book-picker">
@@ -161,6 +185,7 @@
       <div class="card-inner">
         <div class="face front">
           <div class="word" id="fWord">apple</div>
+          <div class="phonetic" id="fPh"></div>
           <div class="hint">点击卡片看中文意思</div>
         </div>
         <div class="face back">
@@ -222,10 +247,31 @@
     </div>
   </section>
 
+  <!-- 默写 -->
+  <section id="panel-dict" class="panel">
+    <div class="quiz-q">看中文（或听发音），把英文拼写出来！</div>
+    <div class="quiz-word" id="dictCn">苹果</div>
+    <button class="sp-btn" onclick="speak(dictWord ? dictWord.en : '')">🔊 听一遍</button>
+    <input id="dictInput" class="dict-input" type="text" autocomplete="off" autocorrect="off"
+           autocapitalize="off" spellcheck="false" placeholder="在这里输入英文…"
+           onkeydown="if(event.key==='Enter') checkDict()" />
+    <button class="next-btn" id="dictCheckBtn" style="display:inline-block" onclick="checkDict()">✓ 检查</button>
+    <div class="result-box" id="dictResult">拼写后点「检查」，或按回车</div>
+    <button class="next-btn" id="dictNextBtn" style="display:none" onclick="newDict()">下一个 ➡</button>
+    <div class="score" id="dictScore">默写：对 0 / 共 0</div>
+  </section>
+
   <!-- 错词本 -->
   <section id="panel-wrong" class="panel">
-    <div class="quiz-q" id="wrongTitle">这里收录你答错的单词，多复习几遍就记住啦！</div>
+    <div class="quiz-q" id="wrongTitle">这里收录你答错/默错的单词，会一直保存，方便反复复习。</div>
+    <div class="wrong-actions" id="wrongActions"></div>
     <div class="wrong-list" id="wrongList"></div>
+  </section>
+
+  <!-- 统计 -->
+  <section id="panel-stats" class="panel">
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="stats-books" id="statsBooks"></div>
   </section>
 
   <footer>做给最棒的小朋友 ❤️ · 译林版全 8 册单词（共 991 词）</footer>
@@ -235,8 +281,24 @@
   // 全部单词从外部文件 words.js 载入（译林版全 8 册，自动生成）
 
   const BOOKS = ["3A","3B","4A","4B","5A","5B","6A","6B"];
+  const BOOK_NAME = { "3A":"三上","3B":"三下","4A":"四上","4B":"四下","5A":"五上","5B":"五下","6A":"六上","6B":"六下" };
   let selectedBook = "all";
   let WORDS = ALL_WORDS.slice();
+
+  // ================= 进度/统计存储 =================
+  function lsGet(k, def) { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? def : v; } catch { return def; } }
+  function lsSet(k, v) { localStorage.setItem(k, JSON.stringify(v)); }
+
+  let seenSet = new Set(lsGet('aiwords_seen', []));   // 学过的单词
+  function markSeen(en) {
+    if (!seenSet.has(en)) { seenSet.add(en); lsSet('aiwords_seen', [...seenSet]); }
+  }
+  function addQuizStat(ok) {
+    const s = lsGet('aiwords_quiz', { c: 0, t: 0 }); s.t++; if (ok) s.c++; lsSet('aiwords_quiz', s);
+  }
+  function addDictStat(ok) {
+    const s = lsGet('aiwords_dict', { c: 0, t: 0 }); s.t++; if (ok) s.c++; lsSet('aiwords_dict', s);
+  }
 
   // ================= 学单词 =================
   let idx = 0;
@@ -246,8 +308,10 @@
     if (!WORDS.length) return;
     card.classList.remove('flipped');
     document.getElementById('fWord').textContent = WORDS[idx].en;
+    document.getElementById('fPh').textContent = WORDS[idx].ph || '';
     document.getElementById('fCn').textContent = WORDS[idx].cn;
     document.getElementById('counter').textContent = `第 ${idx + 1} / ${WORDS.length} 个`;
+    markSeen(WORDS[idx].en);
   }
   function flipCard() { checkInToday(); card.classList.toggle('flipped'); }
   function nextWord() { if (playing) stopAutoPlay(); idx = (idx + 1) % WORDS.length; renderCard(); }
@@ -322,11 +386,11 @@
   }
   function checkAnswer(btn, chosen) {
     if (answered) return;
-    answered = true; checkInToday();
+    answered = true; checkInToday(); markSeen(currentWord.en);
     if (chosen === currentWord) {
-      btn.classList.add('correct'); score++; streakQ++;
+      btn.classList.add('correct'); score++; streakQ++; addQuizStat(true);
     } else {
-      btn.classList.add('wrong'); streakQ = 0;
+      btn.classList.add('wrong'); streakQ = 0; addQuizStat(false);
       addWrongWord(currentWord);
       [...document.getElementById('options').children].forEach(b => {
         if (b.textContent === currentWord.cn) b.classList.add('correct');
@@ -465,35 +529,137 @@
     return Math.max(1, Math.min(5, stars));
   }
 
-  // ================= 错词本 =================
-  function getWrong() { try { return JSON.parse(localStorage.getItem('aiwords_wrong') || '[]'); } catch { return []; } }
-  function saveWrong(list) { localStorage.setItem('aiwords_wrong', JSON.stringify(list)); }
+  // ================= 错词本（长期保存 + 复习） =================
+  function getWrong() { return lsGet('aiwords_wrong', []); }
+  function saveWrong(list) { lsSet('aiwords_wrong', list); }
   function addWrongWord(w) {
     const list = getWrong();
-    if (!list.some(x => x.en === w.en)) { list.push({ en: w.en, cn: w.cn }); saveWrong(list); }
+    const found = list.find(x => x.en === w.en);
+    if (found) { found.count = (found.count || 1) + 1; found.mastered = false; }
+    else list.push({ en: w.en, cn: w.cn, ph: w.ph || '', book: w.book || '', unit: w.unit || '', count: 1, mastered: false });
+    saveWrong(list);
+  }
+  function toggleMastered(en) {
+    const list = getWrong(); const f = list.find(x => x.en === en);
+    if (f) { f.mastered = !f.mastered; saveWrong(list); }
+    renderWrong();
   }
   function removeWrong(en) { saveWrong(getWrong().filter(x => x.en !== en)); renderWrong(); }
+  function clearMastered() { saveWrong(getWrong().filter(x => !x.mastered)); renderWrong(); }
+  function reviewWrong() {
+    const deck = getWrong().filter(x => !x.mastered);
+    if (!deck.length) { alert('没有需要复习的错词啦！'); return; }
+    WORDS = deck.map(x => ({ en: x.en, cn: x.cn, ph: x.ph || '', book: x.book || '', unit: x.unit || '' }));
+    idx = 0; spIdx = 0; currentWord = null;
+    document.getElementById('bookSel').value = 'all'; selectedBook = 'all'; selectedUnit = 'all'; fillUnitOptions();
+    switchTab('quiz'); newQuestion();
+  }
   function renderWrong() {
     const list = getWrong();
     const box = document.getElementById('wrongList');
+    const acts = document.getElementById('wrongActions');
     const title = document.getElementById('wrongTitle');
+    const active = list.filter(x => !x.mastered);
     if (!list.length) {
-      title.textContent = '还没有错词。去测验里做题，答错的词会自动收到这里～';
-      box.innerHTML = '<div class="empty">🎉 目前没有错词，真棒！</div>';
+      title.textContent = '还没有错词。去「测验」或「默写」做题，做错的词会自动、长期地收到这里～';
+      acts.innerHTML = ''; box.innerHTML = '<div class="empty">🎉 目前没有错词，真棒！</div>';
       return;
     }
-    title.textContent = `错词本（共 ${list.length} 个）· 点 ✓ 表示已掌握`;
+    title.textContent = `错词本：待复习 ${active.length} 个 / 共 ${list.length} 个（会一直保存）`;
+    acts.innerHTML = '';
+    const rev = document.createElement('button'); rev.textContent = '🔁 复习错词'; rev.style.background = 'var(--accent)'; rev.style.color = '#fff'; rev.onclick = reviewWrong;
+    const clr = document.createElement('button'); clr.textContent = '🗑 清空已掌握'; clr.style.background = '#eee'; clr.onclick = clearMastered;
+    acts.appendChild(rev); acts.appendChild(clr);
     box.innerHTML = '';
     list.forEach(w => {
       const div = document.createElement('div');
-      div.className = 'wrong-item';
-      div.innerHTML = `<div><span class="en">${w.en}</span><span class="cn">${w.cn}</span></div>`;
-      const acts = document.createElement('div'); acts.className = 'acts';
+      div.className = 'wrong-item' + (w.mastered ? ' done' : '');
+      const phTxt = w.ph ? ` <span class="cn">${w.ph}</span>` : '';
+      const cntTxt = (w.count > 1) ? `<span class="tag">错${w.count}次</span>` : '';
+      div.innerHTML = `<div><span class="en">${w.en}</span>${phTxt}<span class="cn">${w.cn}</span>${cntTxt}</div>`;
+      const a = document.createElement('div'); a.className = 'acts';
       const sp = document.createElement('button'); sp.textContent = '🔊'; sp.style.background = '#eef'; sp.onclick = () => speak(w.en);
-      const ok = document.createElement('button'); ok.textContent = '✓ 掌握'; ok.style.background = 'var(--green)'; ok.style.color = '#fff'; ok.onclick = () => removeWrong(w.en);
-      acts.appendChild(sp); acts.appendChild(ok); div.appendChild(acts);
+      const ok = document.createElement('button'); ok.textContent = w.mastered ? '↩ 未掌握' : '✓ 已掌握';
+      ok.style.background = w.mastered ? '#eee' : 'var(--green)'; ok.style.color = w.mastered ? 'var(--text)' : '#fff';
+      ok.onclick = () => toggleMastered(w.en);
+      const rm = document.createElement('button'); rm.textContent = '移除'; rm.style.background = 'var(--red)'; rm.style.color = '#fff'; rm.onclick = () => removeWrong(w.en);
+      a.appendChild(sp); a.appendChild(ok); a.appendChild(rm); div.appendChild(a);
       box.appendChild(div);
     });
+  }
+
+  // ================= 默写 =================
+  let dictWord = null;
+  function newDict() {
+    if (!WORDS.length) return;
+    dictWord = WORDS[Math.floor(Math.random() * WORDS.length)];
+    document.getElementById('dictCn').textContent = dictWord.cn;
+    const inp = document.getElementById('dictInput'); inp.value = ''; inp.disabled = false; inp.focus();
+    document.getElementById('dictResult').textContent = '拼写后点「检查」，或按回车';
+    document.getElementById('dictCheckBtn').style.display = 'inline-block';
+    document.getElementById('dictNextBtn').style.display = 'none';
+    const s = lsGet('aiwords_dict', { c: 0, t: 0 });
+    document.getElementById('dictScore').textContent = `默写：对 ${s.c} / 共 ${s.t}`;
+    speak(dictWord.en);
+  }
+  function checkDict() {
+    if (!dictWord) return;
+    const inp = document.getElementById('dictInput');
+    if (inp.disabled) return;
+    const ans = inp.value.trim().toLowerCase();
+    if (!ans) { document.getElementById('dictResult').textContent = '先输入英文再检查哦'; return; }
+    checkInToday(); markSeen(dictWord.en);
+    const ok = ans === dictWord.en.trim().toLowerCase();
+    addDictStat(ok);
+    const res = document.getElementById('dictResult');
+    if (ok) {
+      res.innerHTML = `<span class="ok">✓ 正确！</span> ${dictWord.en} ${dictWord.ph || ''}`;
+    } else {
+      res.innerHTML = `<span class="ng">✗ 正确拼写是：</span> ${dictWord.en} ${dictWord.ph || ''}<br>你写的是：${inp.value || '（空）'}`;
+      addWrongWord(dictWord);
+    }
+    inp.disabled = true;
+    document.getElementById('dictCheckBtn').style.display = 'none';
+    document.getElementById('dictNextBtn').style.display = 'inline-block';
+    const s = lsGet('aiwords_dict', { c: 0, t: 0 });
+    document.getElementById('dictScore').textContent = `默写：对 ${s.c} / 共 ${s.t}`;
+    document.getElementById('dictNextBtn').focus();
+  }
+
+  // ================= 学习进度统计 =================
+  function renderStats() {
+    const total = ALL_WORDS.length;
+    const seen = [...seenSet].filter(en => ALL_WORDS.some(w => w.en === en)).length;
+    const q = lsGet('aiwords_quiz', { c: 0, t: 0 });
+    const d = lsGet('aiwords_dict', { c: 0, t: 0 });
+    const wrong = getWrong();
+    const wrongActive = wrong.filter(x => !x.mastered).length;
+    const mastered = wrong.filter(x => x.mastered).length;
+    const qAcc = q.t ? Math.round(q.c / q.t * 100) : 0;
+    const dAcc = d.t ? Math.round(d.c / d.t * 100) : 0;
+    const days = getDays().length;
+
+    const cards = [
+      { num: `${seen}`, lbl: `学过的单词 / 共 ${total}` },
+      { num: `${days} 天`, lbl: '累计打卡天数' },
+      { num: `${qAcc}%`, lbl: `测验正确率（${q.c}/${q.t}）` },
+      { num: `${dAcc}%`, lbl: `默写正确率（${d.c}/${d.t}）` },
+      { num: `${wrongActive}`, lbl: '错词本待复习' },
+      { num: `${mastered}`, lbl: '已掌握错词' }
+    ];
+    document.getElementById('statsGrid').innerHTML = cards.map(c =>
+      `<div class="stat-card"><div class="num">${c.num}</div><div class="lbl">${c.lbl}</div></div>`).join('');
+
+    let html = '<div style="font-weight:600;margin-bottom:8px">各册学习进度</div>';
+    BOOKS.forEach(b => {
+      const words = ALL_WORDS.filter(w => w.book === b);
+      const learned = words.filter(w => seenSet.has(w.en)).length;
+      const pct = words.length ? Math.round(learned / words.length * 100) : 0;
+      html += `<div class="bookrow"><span class="bl">${BOOK_NAME[b]} ${b}</span>` +
+        `<span class="bar"><i style="width:${pct}%"></i></span>` +
+        `<span class="bn">${learned}/${words.length}</span></div>`;
+    });
+    document.getElementById('statsBooks').innerHTML = html;
   }
 
   // ================= 每日打卡 =================
@@ -541,6 +707,7 @@
     if (!WORDS.length) WORDS = ALL_WORDS.slice();
     idx = 0; spIdx = 0; currentWord = null;
     renderCard(); renderSpeak();
+    if (document.getElementById('panel-dict').classList.contains('active')) newDict();
   }
   function onBookChange() {
     if (playing) stopAutoPlay();
@@ -558,13 +725,15 @@
   }
   function switchTab(name) {
     if (name !== 'learn' && playing) stopAutoPlay();
-    ['learn','quiz','speak','wrong'].forEach(n => {
+    ['learn','quiz','speak','dict','wrong','stats'].forEach(n => {
       document.getElementById('tab-'+n).classList.toggle('active', n === name);
       document.getElementById('panel-'+n).classList.toggle('active', n === name);
     });
     if (name === 'quiz' && !currentWord) newQuestion();
     if (name === 'speak') renderSpeak();
+    if (name === 'dict') newDict();
     if (name === 'wrong') renderWrong();
+    if (name === 'stats') renderStats();
   }
 
   document.addEventListener('keydown', (e) => {
