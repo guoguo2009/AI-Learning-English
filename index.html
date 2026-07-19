@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI 背单词 · 译林版小学英语</title>
+<style>
+  :root {
+    --bg1: #6a8dff;
+    --bg2: #9b7bff;
+    --card: #ffffff;
+    --accent: #ff8a5b;
+    --green: #35c98a;
+    --red: #ff6b6b;
+    --text: #2b2d42;
+    --muted: #8a8fa3;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", "Segoe UI", sans-serif;
+    background: linear-gradient(135deg, var(--bg1), var(--bg2));
+    min-height: 100vh;
+    color: var(--text);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+  header { text-align: center; color: #fff; margin: 6px 0 14px; }
+  header h1 { font-size: 26px; letter-spacing: 1px; }
+  header p { opacity: .9; margin-top: 6px; font-size: 14px; }
+
+  .streak {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: rgba(255,255,255,.2); color:#fff;
+    padding: 6px 16px; border-radius: 999px; margin-top: 10px; font-size: 14px;
+  }
+  .streak b { font-size: 18px; }
+
+  .tabs {
+    display: flex; gap: 6px; flex-wrap: wrap; justify-content: center;
+    background: rgba(255,255,255,.2); padding: 6px; border-radius: 18px; margin-bottom: 14px;
+  }
+  .tabs button {
+    border: none; background: transparent; color: #fff;
+    padding: 8px 14px; border-radius: 12px; font-size: 15px; cursor: pointer; transition: .2s;
+  }
+  .tabs button.active { background: #fff; color: var(--bg1); font-weight: 600; }
+
+  .book-picker { margin-bottom: 16px; }
+  .speed, .book-picker label { color: #fff; font-size: 14px; display: flex; align-items: center; gap: 6px; }
+  select { border: none; border-radius: 10px; padding: 6px 10px; font-size: 14px; cursor: pointer; }
+
+  .panel { width: 100%; max-width: 440px; display: none; flex-direction: column; align-items: center; }
+  .panel.active { display: flex; }
+
+  /* Flashcard */
+  .card { width: 100%; height: 240px; perspective: 1200px; cursor: pointer; margin-bottom: 14px; }
+  .card-inner { position: relative; width: 100%; height: 100%; transition: transform .5s; transform-style: preserve-3d; }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+  .face {
+    position: absolute; width: 100%; height: 100%; backface-visibility: hidden;
+    background: var(--card); border-radius: 22px; box-shadow: 0 12px 30px rgba(0,0,0,.18);
+    display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px;
+  }
+  .face .word { font-size: 40px; font-weight: 700; text-align: center; }
+  .face .hint { position: absolute; bottom: 16px; color: var(--muted); font-size: 13px; }
+  .back { transform: rotateY(180deg); background: #fff7f2; }
+  .back .cn { font-size: 30px; font-weight: 700; color: var(--accent); text-align: center; }
+
+  .speak-btn {
+    margin-top: 6px; background: rgba(255,255,255,.9); border: none; border-radius: 50%;
+    width: 52px; height: 52px; font-size: 24px; cursor: pointer; box-shadow: 0 6px 14px rgba(0,0,0,.15);
+  }
+
+  .nav { display: flex; gap: 12px; margin-top: 14px; width: 100%; }
+  .nav button { flex: 1; border: none; border-radius: 14px; padding: 14px; font-size: 16px; color: #fff; background: rgba(255,255,255,.25); cursor: pointer; }
+  .nav button.primary { background: var(--accent); font-weight: 600; }
+  .counter { color: #fff; margin-top: 12px; font-size: 14px; opacity: .9; }
+
+  .autoplay { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; justify-content: center; }
+  .play-btn { border: none; border-radius: 999px; padding: 12px 26px; font-size: 16px; font-weight: 600; cursor: pointer; background: var(--green); color: #fff; box-shadow: 0 6px 14px rgba(0,0,0,.15); }
+  .play-btn.playing { background: var(--red); }
+
+  /* Quiz */
+  .quiz-q { color:#fff; font-size: 15px; margin-bottom: 10px; }
+  .quiz-word { background: #fff; border-radius: 18px; padding: 24px; width: 100%; text-align: center; font-size: 30px; font-weight: 700; box-shadow: 0 10px 24px rgba(0,0,0,.15); margin-bottom: 16px; }
+  .options { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+  .options button { border: none; background: #fff; border-radius: 14px; padding: 16px; font-size: 18px; cursor: pointer; transition: .15s; box-shadow: 0 4px 10px rgba(0,0,0,.08); }
+  .options button.correct { background: var(--green); color:#fff; }
+  .options button.wrong { background: var(--red); color:#fff; }
+  .score { color:#fff; margin-top: 16px; font-size: 16px; }
+  .stars { font-size: 22px; margin-top: 6px; }
+  .next-btn { margin-top: 16px; border:none; background: var(--accent); color:#fff; padding: 12px 28px; border-radius: 14px; font-size: 16px; cursor:pointer; display:none; }
+
+  /* Speak / 跟读 */
+  .big-word { background:#fff; border-radius: 20px; padding: 30px; width:100%; text-align:center; box-shadow: 0 10px 24px rgba(0,0,0,.15); margin-bottom: 8px; }
+  .big-word .w { font-size: 40px; font-weight: 700; }
+  .big-word .m { color: var(--muted); margin-top: 8px; font-size: 18px; }
+  .mic-btn { border:none; border-radius: 50%; width: 84px; height: 84px; font-size: 38px; cursor:pointer; background: var(--accent); color:#fff; box-shadow: 0 8px 20px rgba(0,0,0,.2); margin: 8px 0; transition: .2s; }
+  .mic-btn.recording { background: var(--red); animation: pulse 1s infinite; }
+  @keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.08);} 100%{transform:scale(1);} }
+  .result-box { width:100%; background:#fff; border-radius:16px; padding:18px; margin-top:10px; text-align:center; box-shadow:0 6px 16px rgba(0,0,0,.12); min-height: 70px; }
+  .result-box .pct { font-size: 40px; font-weight: 800; }
+  .result-box .heard { color: var(--muted); font-size: 14px; margin-top: 6px; }
+  .result-box .fb { font-size: 18px; margin-top: 6px; font-weight: 600; }
+
+  /* 错词本 */
+  .wrong-list { width:100%; display:flex; flex-direction:column; gap:10px; }
+  .wrong-item { background:#fff; border-radius:14px; padding:14px 16px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 4px 10px rgba(0,0,0,.08); }
+  .wrong-item .en { font-weight:700; font-size:18px; }
+  .wrong-item .cn { color: var(--muted); font-size:14px; margin-left:8px; }
+  .wrong-item .acts button { border:none; border-radius:10px; padding:8px 10px; margin-left:6px; cursor:pointer; font-size:14px; }
+  .empty { color:#fff; opacity:.85; text-align:center; padding:20px; }
+
+  footer { color:#fff; opacity:.75; font-size:12px; margin-top: 24px; text-align:center; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>🦉 AI 背单词</h1>
+    <p>译林版小学英语 · 每天进步一点点</p>
+    <div class="streak">🔥 连续打卡 <b id="streakNum">0</b> 天　·　累计 <b id="daysNum">0</b> 天</div>
+  </header>
+
+  <div class="tabs">
+    <button id="tab-learn" class="active" onclick="switchTab('learn')">📖 学单词</button>
+    <button id="tab-quiz" onclick="switchTab('quiz')">✏️ 测验</button>
+    <button id="tab-speak" onclick="switchTab('speak')">🎤 跟读</button>
+    <button id="tab-wrong" onclick="switchTab('wrong')">❌ 错词本</button>
+  </div>
+
+  <div class="book-picker">
+    <label>选择册数
+      <select id="bookSel" onchange="onBookChange()">
+        <option value="all">全部</option>
+        <option value="3A">三年级上 3A</option>
+        <option value="3B">三年级下 3B</option>
+        <option value="4A">四年级上 4A</option>
+        <option value="4B">四年级下 4B</option>
+        <option value="5A">五年级上 5A</option>
+        <option value="5B">五年级下 5B</option>
+        <option value="6A">六年级上 6A</option>
+        <option value="6B">六年级下 6B</option>
+      </select>
+    </label>
+  </div>
+
+  <!-- 学单词 -->
+  <section id="panel-learn" class="panel active">
+    <div class="card" id="card" onclick="flipCard()">
+      <div class="card-inner">
+        <div class="face front">
+          <div class="word" id="fWord">apple</div>
+          <div class="hint">点击卡片看中文意思</div>
+        </div>
+        <div class="face back">
+          <div class="cn" id="fCn">苹果</div>
+          <div class="hint">点击卡片翻回英文</div>
+        </div>
+      </div>
+    </div>
+    <button class="speak-btn" onclick="event.stopPropagation(); speakCurrent()">🔊</button>
+    <div class="nav">
+      <button onclick="prevWord()">⬅ 上一个</button>
+      <button class="primary" onclick="nextWord()">下一个 ➡</button>
+    </div>
+    <div class="autoplay">
+      <button id="playBtn" class="play-btn" onclick="toggleAutoPlay()">▶ 自动播放</button>
+      <label class="speed">每词停留
+        <select id="speedSel" onchange="onSpeedChange()">
+          <option value="3000">3 秒</option>
+          <option value="4000" selected>4 秒</option>
+          <option value="5000">5 秒</option>
+          <option value="7000">7 秒</option>
+        </select>
+      </label>
+    </div>
+    <div class="counter" id="counter">第 1 / 30 个</div>
+  </section>
+
+  <!-- 测验 -->
+  <section id="panel-quiz" class="panel">
+    <div class="quiz-q">下面这个单词是什么意思？</div>
+    <div class="quiz-word" id="quizWord">apple</div>
+    <div class="options" id="options"></div>
+    <button class="next-btn" id="nextBtn" onclick="newQuestion()">下一题 ➡</button>
+    <div class="score" id="score">得分：0　连对：0</div>
+    <div class="stars" id="stars"></div>
+  </section>
+
+  <!-- 跟读 -->
+  <section id="panel-speak" class="panel">
+    <div class="quiz-q">听发音，然后点麦克风跟读，AI 给你打分！</div>
+    <div class="big-word">
+      <div class="w" id="spWord">apple</div>
+      <div class="m" id="spCn">苹果</div>
+    </div>
+    <button class="speak-btn" onclick="speak(document.getElementById('spWord').textContent)">🔊 先听一遍</button>
+    <button class="mic-btn" id="micBtn" onclick="startRecord()">🎤</button>
+    <div class="result-box" id="spResult">点上面的麦克风，读出这个单词</div>
+    <div class="nav">
+      <button onclick="prevSpeak()">⬅ 上一个</button>
+      <button class="primary" onclick="nextSpeak()">下一个 ➡</button>
+    </div>
+  </section>
+
+  <!-- 错词本 -->
+  <section id="panel-wrong" class="panel">
+    <div class="quiz-q" id="wrongTitle">这里收录你答错的单词，多复习几遍就记住啦！</div>
+    <div class="wrong-list" id="wrongList"></div>
+  </section>
+
+  <footer>做给最棒的小朋友 ❤️ · 译林版核心词库</footer>
+
+<script>
+  // ================= 译林版（牛津）小学英语词库 3A–6B =================
+  // book：册数（3A=三上, 3B=三下 …… 6B=六下）。改词照 { en, cn, book } 格式即可。
+  const ALL_WORDS = [
+    // ---------- 3A 三年级上 ----------
+    { en: "hello", cn: "你好", book: "3A" },
+    { en: "hi", cn: "嗨；你好", book: "3A" },
+    { en: "good morning", cn: "早上好", book: "3A" },
+    { en: "good afternoon", cn: "下午好", book: "3A" },
+    { en: "goodbye", cn: "再见", book: "3A" },
+    { en: "yes", cn: "是的", book: "3A" },
+    { en: "no", cn: "不；不是", book: "3A" },
+    { en: "this", cn: "这个", book: "3A" },
+    { en: "that", cn: "那个", book: "3A" },
+    { en: "friend", cn: "朋友", book: "3A" },
+    { en: "father", cn: "爸爸", book: "3A" },
+    { en: "mother", cn: "妈妈", book: "3A" },
+    { en: "brother", cn: "兄弟", book: "3A" },
+    { en: "sister", cn: "姐妹", book: "3A" },
+    { en: "look", cn: "看", book: "3A" },
+    { en: "big", cn: "大的", book: "3A" },
+    { en: "small", cn: "小的", book: "3A" },
+    { en: "red", cn: "红色的", book: "3A" },
+    { en: "yellow", cn: "黄色的", book: "3A" },
+    { en: "blue", cn: "蓝色的", book: "3A" },
+    { en: "green", cn: "绿色的", book: "3A" },
+    { en: "orange", cn: "橙色的；橙子", book: "3A" },
+    { en: "cake", cn: "蛋糕", book: "3A" },
+    { en: "pie", cn: "馅饼", book: "3A" },
+    { en: "sweet", cn: "糖果；甜的", book: "3A" },
+    { en: "egg", cn: "蛋", book: "3A" },
+    { en: "like", cn: "喜欢", book: "3A" },
+    { en: "thank you", cn: "谢谢你", book: "3A" },
+    { en: "banana", cn: "香蕉", book: "3A" },
+    { en: "apple", cn: "苹果", book: "3A" },
+    { en: "mango", cn: "芒果", book: "3A" },
+    { en: "great", cn: "太好了；巨大的", book: "3A" },
+
+    // ---------- 3B 三年级下 ----------
+    { en: "door", cn: "门", book: "3B" },
+    { en: "window", cn: "窗户", book: "3B" },
+    { en: "blackboard", cn: "黑板", book: "3B" },
+    { en: "chair", cn: "椅子", book: "3B" },
+    { en: "desk", cn: "书桌", book: "3B" },
+    { en: "open", cn: "打开", book: "3B" },
+    { en: "close", cn: "关上", book: "3B" },
+    { en: "clean", cn: "打扫；干净的", book: "3B" },
+    { en: "come in", cn: "进来", book: "3B" },
+    { en: "sit down", cn: "坐下", book: "3B" },
+    { en: "stand up", cn: "起立", book: "3B" },
+    { en: "book", cn: "书", book: "3B" },
+    { en: "schoolbag", cn: "书包", book: "3B" },
+    { en: "storybook", cn: "故事书", book: "3B" },
+    { en: "crayon", cn: "蜡笔", book: "3B" },
+    { en: "toy", cn: "玩具", book: "3B" },
+    { en: "panda", cn: "熊猫", book: "3B" },
+    { en: "in", cn: "在……里", book: "3B" },
+    { en: "on", cn: "在……上", book: "3B" },
+    { en: "under", cn: "在……下", book: "3B" },
+    { en: "behind", cn: "在……后面", book: "3B" },
+    { en: "boy", cn: "男孩", book: "3B" },
+    { en: "girl", cn: "女孩", book: "3B" },
+    { en: "please", cn: "请", book: "3B" },
+    { en: "grape", cn: "葡萄", book: "3B" },
+    { en: "juice", cn: "果汁", book: "3B" },
+    { en: "milk", cn: "牛奶", book: "3B" },
+    { en: "tea", cn: "茶", book: "3B" },
+    { en: "water", cn: "水", book: "3B" },
+    { en: "cute", cn: "可爱的", book: "3B" },
+
+    // ---------- 4A 四年级上 ----------
+    { en: "dog", cn: "狗", book: "4A" },
+    { en: "cat", cn: "猫", book: "4A" },
+    { en: "duck", cn: "鸭子", book: "4A" },
+    { en: "chicken", cn: "小鸡；鸡肉", book: "4A" },
+    { en: "horse", cn: "马", book: "4A" },
+    { en: "cow", cn: "奶牛", book: "4A" },
+    { en: "rabbit", cn: "兔子", book: "4A" },
+    { en: "how many", cn: "多少", book: "4A" },
+    { en: "pen", cn: "钢笔", book: "4A" },
+    { en: "pencil", cn: "铅笔", book: "4A" },
+    { en: "ruler", cn: "尺子", book: "4A" },
+    { en: "rubber", cn: "橡皮", book: "4A" },
+    { en: "pencil case", cn: "铅笔盒", book: "4A" },
+    { en: "have", cn: "有", book: "4A" },
+    { en: "noodles", cn: "面条", book: "4A" },
+    { en: "rice", cn: "米饭", book: "4A" },
+    { en: "fish", cn: "鱼", book: "4A" },
+    { en: "hungry", cn: "饥饿的", book: "4A" },
+    { en: "breakfast", cn: "早餐", book: "4A" },
+    { en: "lunch", cn: "午餐", book: "4A" },
+    { en: "dinner", cn: "晚餐", book: "4A" },
+    { en: "shoe", cn: "鞋子", book: "4A" },
+    { en: "sock", cn: "袜子", book: "4A" },
+    { en: "jacket", cn: "夹克衫", book: "4A" },
+    { en: "T-shirt", cn: "T恤衫", book: "4A" },
+    { en: "skirt", cn: "短裙", book: "4A" },
+    { en: "coat", cn: "外套", book: "4A" },
+    { en: "cap", cn: "帽子", book: "4A" },
+    { en: "sweater", cn: "毛衣", book: "4A" },
+    { en: "how much", cn: "多少钱", book: "4A" },
+
+    // ---------- 4B 四年级下 ----------
+    { en: "classroom", cn: "教室", book: "4B" },
+    { en: "library", cn: "图书馆", book: "4B" },
+    { en: "playground", cn: "操场", book: "4B" },
+    { en: "garden", cn: "花园", book: "4B" },
+    { en: "art room", cn: "美术室", book: "4B" },
+    { en: "music room", cn: "音乐室", book: "4B" },
+    { en: "computer room", cn: "电脑房", book: "4B" },
+    { en: "farm", cn: "农场", book: "4B" },
+    { en: "tree", cn: "树", book: "4B" },
+    { en: "flower", cn: "花", book: "4B" },
+    { en: "pear", cn: "梨", book: "4B" },
+    { en: "welcome", cn: "欢迎", book: "4B" },
+    { en: "season", cn: "季节", book: "4B" },
+    { en: "spring", cn: "春天", book: "4B" },
+    { en: "summer", cn: "夏天", book: "4B" },
+    { en: "autumn", cn: "秋天", book: "4B" },
+    { en: "winter", cn: "冬天", book: "4B" },
+    { en: "warm", cn: "温暖的", book: "4B" },
+    { en: "hot", cn: "热的", book: "4B" },
+    { en: "cool", cn: "凉爽的", book: "4B" },
+    { en: "cold", cn: "寒冷的", book: "4B" },
+    { en: "kite", cn: "风筝", book: "4B" },
+    { en: "swim", cn: "游泳", book: "4B" },
+    { en: "climb", cn: "爬", book: "4B" },
+    { en: "time", cn: "时间", book: "4B" },
+    { en: "o'clock", cn: "……点钟", book: "4B" },
+    { en: "get up", cn: "起床", book: "4B" },
+    { en: "go to school", cn: "去上学", book: "4B" },
+    { en: "go home", cn: "回家", book: "4B" },
+    { en: "go to bed", cn: "睡觉", book: "4B" },
+
+    // ---------- 5A 五年级上 ----------
+    { en: "bear", cn: "熊", book: "5A" },
+    { en: "forest", cn: "森林", book: "5A" },
+    { en: "house", cn: "房子", book: "5A" },
+    { en: "soup", cn: "汤", book: "5A" },
+    { en: "room", cn: "房间", book: "5A" },
+    { en: "hard", cn: "硬的", book: "5A" },
+    { en: "soft", cn: "柔软的", book: "5A" },
+    { en: "afraid", cn: "害怕的", book: "5A" },
+    { en: "in front of", cn: "在……前面", book: "5A" },
+    { en: "grandpa", cn: "爷爷", book: "5A" },
+    { en: "grandma", cn: "奶奶", book: "5A" },
+    { en: "cousin", cn: "堂（表）兄弟姐妹", book: "5A" },
+    { en: "uncle", cn: "叔叔", book: "5A" },
+    { en: "aunt", cn: "阿姨", book: "5A" },
+    { en: "any", cn: "一些；任何", book: "5A" },
+    { en: "hall", cn: "大厅", book: "5A" },
+    { en: "bedroom", cn: "卧室", book: "5A" },
+    { en: "kitchen", cn: "厨房", book: "5A" },
+    { en: "bathroom", cn: "浴室", book: "5A" },
+    { en: "living room", cn: "客厅", book: "5A" },
+    { en: "study", cn: "书房；学习", book: "5A" },
+    { en: "cinema", cn: "电影院", book: "5A" },
+    { en: "hospital", cn: "医院", book: "5A" },
+    { en: "supermarket", cn: "超市", book: "5A" },
+    { en: "week", cn: "星期；周", book: "5A" },
+    { en: "weekend", cn: "周末", book: "5A" },
+    { en: "busy", cn: "忙碌的", book: "5A" },
+    { en: "visit", cn: "参观；拜访", book: "5A" },
+    { en: "map", cn: "地图", book: "5A" },
+    { en: "everyone", cn: "每个人", book: "5A" },
+
+    // ---------- 5B 五年级下 ----------
+    { en: "prince", cn: "王子", book: "5B" },
+    { en: "why", cn: "为什么", book: "5B" },
+    { en: "because", cn: "因为", book: "5B" },
+    { en: "clothes", cn: "衣服", book: "5B" },
+    { en: "before", cn: "在……以前", book: "5B" },
+    { en: "late", cn: "迟的；晚的", book: "5B" },
+    { en: "pick", cn: "采；摘", book: "5B" },
+    { en: "understand", cn: "明白；理解", book: "5B" },
+    { en: "mushroom", cn: "蘑菇", book: "5B" },
+    { en: "restaurant", cn: "餐馆", book: "5B" },
+    { en: "help", cn: "帮助", book: "5B" },
+    { en: "wash", cn: "洗", book: "5B" },
+    { en: "cook", cn: "做饭；厨师", book: "5B" },
+    { en: "sweep", cn: "扫", book: "5B" },
+    { en: "hobby", cn: "爱好", book: "5B" },
+    { en: "dance", cn: "跳舞", book: "5B" },
+    { en: "sing", cn: "唱歌", book: "5B" },
+    { en: "draw", cn: "画画", book: "5B" },
+    { en: "collect", cn: "收集", book: "5B" },
+    { en: "stamp", cn: "邮票", book: "5B" },
+    { en: "grow", cn: "种植；生长", book: "5B" },
+    { en: "job", cn: "工作", book: "5B" },
+    { en: "doctor", cn: "医生", book: "5B" },
+    { en: "nurse", cn: "护士", book: "5B" },
+    { en: "worker", cn: "工人", book: "5B" },
+    { en: "farmer", cn: "农民", book: "5B" },
+    { en: "driver", cn: "司机", book: "5B" },
+    { en: "policeman", cn: "警察", book: "5B" },
+    { en: "month", cn: "月份", book: "5B" },
+    { en: "birthday", cn: "生日", book: "5B" },
+
+    // ---------- 6A 六年级上 ----------
+    { en: "king", cn: "国王", book: "6A" },
+    { en: "wear", cn: "穿；戴", book: "6A" },
+    { en: "magic", cn: "魔法的", book: "6A" },
+    { en: "laugh", cn: "笑", book: "6A" },
+    { en: "shout", cn: "喊；叫", book: "6A" },
+    { en: "through", cn: "穿过", book: "6A" },
+    { en: "fox", cn: "狐狸", book: "6A" },
+    { en: "wolf", cn: "狼", book: "6A" },
+    { en: "hen", cn: "母鸡", book: "6A" },
+    { en: "meat", cn: "肉", book: "6A" },
+    { en: "field", cn: "田地", book: "6A" },
+    { en: "ground", cn: "地面", book: "6A" },
+    { en: "holiday", cn: "假期", book: "6A" },
+    { en: "national", cn: "国家的", book: "6A" },
+    { en: "flag", cn: "旗帜", book: "6A" },
+    { en: "capital", cn: "首都", book: "6A" },
+    { en: "country", cn: "国家", book: "6A" },
+    { en: "China", cn: "中国", book: "6A" },
+    { en: "the UK", cn: "英国", book: "6A" },
+    { en: "the US", cn: "美国", book: "6A" },
+    { en: "keep", cn: "保持；饲养", book: "6A" },
+    { en: "rule", cn: "规则", book: "6A" },
+    { en: "quiet", cn: "安静的", book: "6A" },
+    { en: "litter", cn: "乱扔垃圾", book: "6A" },
+    { en: "sign", cn: "标志；标牌", book: "6A" },
+    { en: "mean", cn: "意思是", book: "6A" },
+    { en: "message", cn: "信息", book: "6A" },
+    { en: "email", cn: "电子邮件", book: "6A" },
+    { en: "internet", cn: "互联网", book: "6A" },
+    { en: "useful", cn: "有用的", book: "6A" },
+
+    // ---------- 6B 六年级下 ----------
+    { en: "tall", cn: "高的", book: "6B" },
+    { en: "taller", cn: "更高的", book: "6B" },
+    { en: "short", cn: "矮的；短的", book: "6B" },
+    { en: "long", cn: "长的", book: "6B" },
+    { en: "young", cn: "年轻的", book: "6B" },
+    { en: "old", cn: "年老的；旧的", book: "6B" },
+    { en: "strong", cn: "强壮的", book: "6B" },
+    { en: "heavy", cn: "重的", book: "6B" },
+    { en: "light", cn: "轻的；光", book: "6B" },
+    { en: "dream", cn: "梦想", book: "6B" },
+    { en: "future", cn: "未来", book: "6B" },
+    { en: "space", cn: "太空", book: "6B" },
+    { en: "moon", cn: "月亮", book: "6B" },
+    { en: "star", cn: "星星", book: "6B" },
+    { en: "travel", cn: "旅行", book: "6B" },
+    { en: "plane", cn: "飞机", book: "6B" },
+    { en: "train", cn: "火车", book: "6B" },
+    { en: "ship", cn: "轮船", book: "6B" },
+    { en: "ticket", cn: "票", book: "6B" },
+    { en: "healthy", cn: "健康的", book: "6B" },
+    { en: "ill", cn: "生病的", book: "6B" },
+    { en: "cough", cn: "咳嗽", book: "6B" },
+    { en: "fever", cn: "发烧", book: "6B" },
+    { en: "medicine", cn: "药", book: "6B" },
+    { en: "rest", cn: "休息", book: "6B" },
+    { en: "exercise", cn: "锻炼；练习", book: "6B" },
+    { en: "hope", cn: "希望", book: "6B" },
+    { en: "remember", cn: "记得", book: "6B" },
+    { en: "answer", cn: "回答；答案", book: "6B" },
+    { en: "question", cn: "问题", book: "6B" }
+  ];
+
+  const BOOKS = ["3A","3B","4A","4B","5A","5B","6A","6B"];
+  let selectedBook = "all";
+  let WORDS = ALL_WORDS.slice();
+
+  // ================= 学单词 =================
+  let idx = 0;
+  const card = document.getElementById('card');
+
+  function renderCard() {
+    if (!WORDS.length) return;
+    card.classList.remove('flipped');
+    document.getElementById('fWord').textContent = WORDS[idx].en;
+    document.getElementById('fCn').textContent = WORDS[idx].cn;
+    document.getElementById('counter').textContent = `第 ${idx + 1} / ${WORDS.length} 个`;
+  }
+  function flipCard() { checkInToday(); card.classList.toggle('flipped'); }
+  function nextWord() { if (playing) stopAutoPlay(); idx = (idx + 1) % WORDS.length; renderCard(); }
+  function prevWord() { if (playing) stopAutoPlay(); idx = (idx - 1 + WORDS.length) % WORDS.length; renderCard(); }
+  function speakCurrent() { speak(WORDS[idx].en); }
+
+  function speak(text) {
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'en-US'; u.rate = 0.9;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }
+
+  // ================= 自动播放 =================
+  let playing = false, interval = 4000, timers = [];
+  function clearTimers() { timers.forEach(clearTimeout); timers = []; }
+  function toggleAutoPlay() { playing ? stopAutoPlay() : startAutoPlay(); }
+  function startAutoPlay() {
+    playing = true; checkInToday();
+    const b = document.getElementById('playBtn'); b.textContent = '⏸ 暂停'; b.classList.add('playing');
+    switchTab('learn'); playStep();
+  }
+  function stopAutoPlay() {
+    playing = false; clearTimers(); speechSynthesis.cancel();
+    const b = document.getElementById('playBtn'); b.textContent = '▶ 自动播放'; b.classList.remove('playing');
+  }
+  function playStep() {
+    if (!playing) return;
+    renderCard(); speakCurrent();
+    timers.push(setTimeout(() => { if (playing) speakCurrent(); }, 1200));
+    timers.push(setTimeout(() => { if (playing) card.classList.add('flipped'); }, interval * 0.5));
+    timers.push(setTimeout(() => { if (!playing) return; idx = (idx + 1) % WORDS.length; playStep(); }, interval));
+  }
+  function onSpeedChange() { interval = parseInt(document.getElementById('speedSel').value, 10); if (playing) { clearTimers(); playStep(); } }
+
+  // ================= 测验 =================
+  let score = 0, streakQ = 0, answered = false, currentWord = null;
+  function newQuestion() {
+    if (!WORDS.length) return;
+    answered = false;
+    document.getElementById('nextBtn').style.display = 'none';
+    currentWord = WORDS[Math.floor(Math.random() * WORDS.length)];
+    document.getElementById('quizWord').textContent = currentWord.en;
+    const opts = [currentWord];
+    const pool = ALL_WORDS;
+    while (opts.length < 4) {
+      const w = pool[Math.floor(Math.random() * pool.length)];
+      if (!opts.includes(w)) opts.push(w);
+    }
+    shuffle(opts);
+    const box = document.getElementById('options'); box.innerHTML = '';
+    opts.forEach(w => {
+      const b = document.createElement('button');
+      b.textContent = w.cn;
+      b.onclick = () => checkAnswer(b, w);
+      box.appendChild(b);
+    });
+    speak(currentWord.en);
+  }
+  function checkAnswer(btn, chosen) {
+    if (answered) return;
+    answered = true; checkInToday();
+    if (chosen === currentWord) {
+      btn.classList.add('correct'); score++; streakQ++;
+    } else {
+      btn.classList.add('wrong'); streakQ = 0;
+      addWrongWord(currentWord);
+      [...document.getElementById('options').children].forEach(b => {
+        if (b.textContent === currentWord.cn) b.classList.add('correct');
+      });
+    }
+    updateScore();
+    document.getElementById('nextBtn').style.display = 'inline-block';
+  }
+  function updateScore() {
+    document.getElementById('score').textContent = `得分：${score}　连对：${streakQ}`;
+    document.getElementById('stars').textContent = '⭐'.repeat(Math.min(streakQ, 10));
+    localStorage.setItem('aiwords_score', score);
+  }
+  function shuffle(a) { for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
+
+  // ================= 跟读 + AI 打分 =================
+  let spIdx = 0;
+  function renderSpeak() {
+    if (!WORDS.length) return;
+    spIdx = spIdx % WORDS.length;
+    document.getElementById('spWord').textContent = WORDS[spIdx].en;
+    document.getElementById('spCn').textContent = WORDS[spIdx].cn;
+    document.getElementById('spResult').innerHTML = '点上面的麦克风，读出这个单词';
+  }
+  function nextSpeak() { spIdx = (spIdx + 1) % WORDS.length; renderSpeak(); speak(WORDS[spIdx].en); }
+  function prevSpeak() { spIdx = (spIdx - 1 + WORDS.length) % WORDS.length; renderSpeak(); }
+
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  let recog = null;
+  function startRecord() {
+    const res = document.getElementById('spResult');
+    if (!SR) { res.innerHTML = '⚠️ 这个浏览器不支持语音识别，请用 <b>Edge</b> 或 <b>Chrome</b> 打开'; return; }
+    checkInToday();
+    const btn = document.getElementById('micBtn');
+    recog = new SR();
+    recog.lang = 'en-US'; recog.interimResults = false; recog.maxAlternatives = 3;
+    btn.classList.add('recording'); btn.textContent = '●';
+    res.innerHTML = '🎧 正在听……请读出单词';
+    recog.start();
+    recog.onresult = (e) => {
+      let best = '';
+      for (const alt of e.results[0]) { best = alt.transcript; break; }
+      const target = WORDS[spIdx].en;
+      const pct = scoreSpeech(target, [...e.results[0]].map(a => a.transcript));
+      showScore(pct, best);
+    };
+    recog.onerror = (e) => {
+      res.innerHTML = e.error === 'no-speech' ? '没听清，再读一次试试～'
+        : (e.error === 'not-allowed' ? '需要允许使用麦克风哦（浏览器上方会弹出请求）' : '出错了，再试一次');
+      resetMic();
+    };
+    recog.onend = () => resetMic();
+  }
+  function resetMic() { const b = document.getElementById('micBtn'); b.classList.remove('recording'); b.textContent = '🎤'; }
+
+  function showScore(pct, heard) {
+    let fb, color;
+    if (pct >= 85) { fb = '太棒了！发音很标准 🎉'; color = 'var(--green)'; }
+    else if (pct >= 60) { fb = '不错，再清晰一点会更好 👍'; color = 'var(--accent)'; }
+    else { fb = '再听一遍，慢慢跟读 💪'; color = 'var(--red)'; }
+    document.getElementById('spResult').innerHTML =
+      `<div class="pct" style="color:${color}">${pct}分</div>` +
+      `<div class="fb">${fb}</div>` +
+      `<div class="heard">AI 听到你读的是：${heard || '（没听清）'}</div>`;
+  }
+
+  // 用编辑距离算相似度，取多个候选里最高分
+  function scoreSpeech(target, heardList) {
+    const t = norm(target);
+    let best = 0;
+    heardList.forEach(h => {
+      const s = similarity(t, norm(h));
+      if (s > best) best = s;
+    });
+    return Math.round(best * 100);
+  }
+  function norm(s) { return (s || '').toLowerCase().replace(/[^a-z ]/g, '').trim(); }
+  function similarity(a, b) {
+    if (!a && !b) return 1;
+    const d = levenshtein(a, b);
+    return 1 - d / Math.max(a.length, b.length, 1);
+  }
+  function levenshtein(a, b) {
+    const m = a.length, n = b.length;
+    const dp = Array.from({length: m+1}, (_,i) => [i, ...Array(n).fill(0)]);
+    for (let j=0;j<=n;j++) dp[0][j]=j;
+    for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
+      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
+    return dp[m][n];
+  }
+
+  // ================= 错词本 =================
+  function getWrong() { try { return JSON.parse(localStorage.getItem('aiwords_wrong') || '[]'); } catch { return []; } }
+  function saveWrong(list) { localStorage.setItem('aiwords_wrong', JSON.stringify(list)); }
+  function addWrongWord(w) {
+    const list = getWrong();
+    if (!list.some(x => x.en === w.en)) { list.push({ en: w.en, cn: w.cn }); saveWrong(list); }
+  }
+  function removeWrong(en) { saveWrong(getWrong().filter(x => x.en !== en)); renderWrong(); }
+  function renderWrong() {
+    const list = getWrong();
+    const box = document.getElementById('wrongList');
+    const title = document.getElementById('wrongTitle');
+    if (!list.length) {
+      title.textContent = '还没有错词。去测验里做题，答错的词会自动收到这里～';
+      box.innerHTML = '<div class="empty">🎉 目前没有错词，真棒！</div>';
+      return;
+    }
+    title.textContent = `错词本（共 ${list.length} 个）· 点 ✓ 表示已掌握`;
+    box.innerHTML = '';
+    list.forEach(w => {
+      const div = document.createElement('div');
+      div.className = 'wrong-item';
+      div.innerHTML = `<div><span class="en">${w.en}</span><span class="cn">${w.cn}</span></div>`;
+      const acts = document.createElement('div'); acts.className = 'acts';
+      const sp = document.createElement('button'); sp.textContent = '🔊'; sp.style.background = '#eef'; sp.onclick = () => speak(w.en);
+      const ok = document.createElement('button'); ok.textContent = '✓ 掌握'; ok.style.background = 'var(--green)'; ok.style.color = '#fff'; ok.onclick = () => removeWrong(w.en);
+      acts.appendChild(sp); acts.appendChild(ok); div.appendChild(acts);
+      box.appendChild(div);
+    });
+  }
+
+  // ================= 每日打卡 =================
+  function todayStr() { const d = new Date(); return `${d.getFullYear()}-${d.getMonth()+1}-${d.getDate()}`; }
+  function getDays() { try { return JSON.parse(localStorage.getItem('aiwords_days') || '[]'); } catch { return []; } }
+  function checkInToday() {
+    const days = getDays(); const t = todayStr();
+    if (!days.includes(t)) { days.push(t); localStorage.setItem('aiwords_days', JSON.stringify(days)); }
+    renderStreak();
+  }
+  function renderStreak() {
+    const days = getDays().map(s => new Date(s.replace(/-/g,'/'))).sort((a,b)=>a-b);
+    document.getElementById('daysNum').textContent = getDays().length;
+    let streak = 0;
+    let cur = new Date(); cur.setHours(0,0,0,0);
+    const set = new Set(getDays().map(s => new Date(s.replace(/-/g,'/')).setHours(0,0,0,0)));
+    while (set.has(cur.getTime())) { streak++; cur.setDate(cur.getDate()-1); }
+    document.getElementById('streakNum').textContent = streak;
+  }
+
+  // ================= 切换 & 初始化 =================
+  function applyBookFilter() {
+    WORDS = selectedBook === 'all' ? ALL_WORDS.slice() : ALL_WORDS.filter(w => w.book === selectedBook);
+    idx = 0; spIdx = 0; currentWord = null;
+    renderCard(); renderSpeak();
+  }
+  function onBookChange() {
+    if (playing) stopAutoPlay();
+    selectedBook = document.getElementById('bookSel').value;
+    applyBookFilter();
+    if (document.getElementById('panel-quiz').classList.contains('active')) newQuestion();
+  }
+  function switchTab(name) {
+    if (name !== 'learn' && playing) stopAutoPlay();
+    ['learn','quiz','speak','wrong'].forEach(n => {
+      document.getElementById('tab-'+n).classList.toggle('active', n === name);
+      document.getElementById('panel-'+n).classList.toggle('active', n === name);
+    });
+    if (name === 'quiz' && !currentWord) newQuestion();
+    if (name === 'speak') renderSpeak();
+    if (name === 'wrong') renderWrong();
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (document.getElementById('panel-learn').classList.contains('active')) {
+      if (e.key === 'ArrowRight') nextWord();
+      if (e.key === 'ArrowLeft') prevWord();
+      if (e.key === ' ') { e.preventDefault(); flipCard(); }
+    }
+  });
+
+  score = parseInt(localStorage.getItem('aiwords_score') || '0', 10);
+  renderCard(); renderSpeak(); updateScore(); renderStreak();
+</script>
+</body>
+</html>
