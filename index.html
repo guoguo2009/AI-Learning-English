@@ -97,13 +97,17 @@
   .big-word { background:#fff; border-radius: 20px; padding: 30px; width:100%; text-align:center; box-shadow: 0 10px 24px rgba(0,0,0,.15); margin-bottom: 8px; }
   .big-word .w { font-size: 40px; font-weight: 700; }
   .big-word .m { color: var(--muted); margin-top: 8px; font-size: 18px; }
-  .mic-btn { border:none; border-radius: 50%; width: 84px; height: 84px; font-size: 38px; cursor:pointer; background: var(--accent); color:#fff; box-shadow: 0 8px 20px rgba(0,0,0,.2); margin: 8px 0; transition: .2s; }
-  .mic-btn.recording { background: var(--red); animation: pulse 1s infinite; }
-  @keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.08);} 100%{transform:scale(1);} }
-  .result-box { width:100%; background:#fff; border-radius:16px; padding:18px; margin-top:10px; text-align:center; box-shadow:0 6px 16px rgba(0,0,0,.12); min-height: 70px; }
-  .result-box .pct { font-size: 40px; font-weight: 800; }
-  .result-box .heard { color: var(--muted); font-size: 14px; margin-top: 6px; }
-  .result-box .fb { font-size: 18px; margin-top: 6px; font-weight: 600; }
+  .speak-actions { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; margin: 12px 0 4px; width:100%; }
+  .sp-btn { border:none; border-radius: 14px; padding: 12px 16px; font-size: 15px; font-weight:600; cursor:pointer; background:#fff; color: var(--text); box-shadow: 0 6px 14px rgba(0,0,0,.12); }
+  .sp-btn.rec { background: var(--accent); color:#fff; }
+  .sp-btn.rec.recording { background: var(--red); animation: pulse 1s infinite; }
+  .sp-btn:disabled { opacity:.5; cursor: default; }
+  @keyframes pulse { 0%{transform:scale(1);} 50%{transform:scale(1.06);} 100%{transform:scale(1);} }
+  .result-box { width:100%; background:#fff; border-radius:16px; padding:16px; margin-top:10px; text-align:center; box-shadow:0 6px 16px rgba(0,0,0,.12); min-height: 56px; font-size: 15px; }
+  .result-box .fb { font-size: 18px; margin-top: 4px; font-weight: 600; }
+  .selfrate { color:#fff; margin-top:14px; font-size:15px; display:flex; align-items:center; gap:10px; }
+  .rate-stars span { font-size: 30px; cursor:pointer; filter: grayscale(1); opacity:.7; transition:.15s; }
+  .rate-stars span.on { filter: none; opacity:1; transform: scale(1.1); }
 
   /* 错词本 */
   .wrong-list { width:100%; display:flex; flex-direction:column; gap:10px; }
@@ -191,14 +195,22 @@
 
   <!-- 跟读 -->
   <section id="panel-speak" class="panel">
-    <div class="quiz-q">听发音，然后点麦克风跟读，AI 给你打分！</div>
+    <div class="quiz-q">① 听标准发音 → ② 录下自己读 → ③ 对比，再给自己打星星！</div>
     <div class="big-word">
       <div class="w" id="spWord">apple</div>
       <div class="m" id="spCn">苹果</div>
     </div>
-    <button class="speak-btn" onclick="speak(document.getElementById('spWord').textContent)">🔊 先听一遍</button>
-    <button class="mic-btn" id="micBtn" onclick="startRecord()">🎤</button>
-    <div class="result-box" id="spResult">点上面的麦克风，读出这个单词</div>
+    <div class="speak-actions">
+      <button class="sp-btn" onclick="speak(document.getElementById('spWord').textContent)">🔊 标准发音</button>
+      <button class="sp-btn rec" id="recBtn" onclick="toggleRecord()">🎤 开始录音</button>
+      <button class="sp-btn" id="playMyBtn" onclick="playMyVoice()" disabled>▶ 我的录音</button>
+    </div>
+    <div class="result-box" id="spResult">点「🎤 开始录音」，读出上面的单词</div>
+    <div class="selfrate" id="selfRate">
+      <span>读得怎么样？</span>
+      <span class="rate-stars" id="rateStars"></span>
+    </div>
+    <audio id="myAudio" style="display:none"></audio>
     <div class="nav">
       <button onclick="prevSpeak()">⬅ 上一个</button>
       <button class="primary" onclick="nextSpeak()">下一个 ➡</button>
@@ -584,80 +596,89 @@
   }
   function shuffle(a) { for (let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];} }
 
-  // ================= 跟读 + AI 打分 =================
+  // ================= 跟读：录音 + 回放对比 + 自评星星 =================
   let spIdx = 0;
+  let mediaRecorder = null, recChunks = [], recStream = null, recording = false, myBlobUrl = null;
+
   function renderSpeak() {
     if (!WORDS.length) return;
     spIdx = spIdx % WORDS.length;
     document.getElementById('spWord').textContent = WORDS[spIdx].en;
     document.getElementById('spCn').textContent = WORDS[spIdx].cn;
-    document.getElementById('spResult').innerHTML = '点上面的麦克风，读出这个单词';
+    document.getElementById('spResult').innerHTML = '点「🎤 开始录音」，读出上面的单词';
+    resetMyVoice();
+    setStars(0);
   }
-  function nextSpeak() { spIdx = (spIdx + 1) % WORDS.length; renderSpeak(); speak(WORDS[spIdx].en); }
-  function prevSpeak() { spIdx = (spIdx - 1 + WORDS.length) % WORDS.length; renderSpeak(); }
+  function nextSpeak() { if (recording) stopRecord(); spIdx = (spIdx + 1) % WORDS.length; renderSpeak(); speak(WORDS[spIdx].en); }
+  function prevSpeak() { if (recording) stopRecord(); spIdx = (spIdx - 1 + WORDS.length) % WORDS.length; renderSpeak(); }
 
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  let recog = null;
-  function startRecord() {
+  function resetMyVoice() {
+    document.getElementById('playMyBtn').disabled = true;
+    if (myBlobUrl) { URL.revokeObjectURL(myBlobUrl); myBlobUrl = null; }
+  }
+
+  function toggleRecord() { recording ? stopRecord() : startRecord(); }
+
+  async function startRecord() {
     const res = document.getElementById('spResult');
-    if (!SR) { res.innerHTML = '⚠️ 这个浏览器不支持语音识别，请用 <b>Edge</b> 或 <b>Chrome</b> 打开'; return; }
+    if (!navigator.mediaDevices || !window.MediaRecorder) {
+      res.innerHTML = '⚠️ 这个浏览器不支持录音，请更新系统，或用 Safari / Chrome 打开';
+      return;
+    }
+    try {
+      recStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    } catch (err) {
+      res.innerHTML = '🎤 需要允许使用麦克风：请在弹出的提示里点「允许」，然后再点一次录音';
+      return;
+    }
     checkInToday();
-    const btn = document.getElementById('micBtn');
-    recog = new SR();
-    recog.lang = 'en-US'; recog.interimResults = false; recog.maxAlternatives = 3;
-    btn.classList.add('recording'); btn.textContent = '●';
-    res.innerHTML = '🎧 正在听……请读出单词';
-    recog.start();
-    recog.onresult = (e) => {
-      let best = '';
-      for (const alt of e.results[0]) { best = alt.transcript; break; }
-      const target = WORDS[spIdx].en;
-      const pct = scoreSpeech(target, [...e.results[0]].map(a => a.transcript));
-      showScore(pct, best);
+    recChunks = [];
+    try { mediaRecorder = new MediaRecorder(recStream); }
+    catch (e) { mediaRecorder = new MediaRecorder(recStream, { mimeType: 'audio/mp4' }); }
+    mediaRecorder.ondataavailable = e => { if (e.data && e.data.size) recChunks.push(e.data); };
+    mediaRecorder.onstop = () => {
+      const type = recChunks[0] ? recChunks[0].type : 'audio/mp4';
+      const blob = new Blob(recChunks, { type });
+      myBlobUrl = URL.createObjectURL(blob);
+      document.getElementById('myAudio').src = myBlobUrl;
+      document.getElementById('playMyBtn').disabled = false;
+      res.innerHTML = '录好啦！点「▶ 我的录音」听自己，再点「🔊 标准发音」对比，然后给自己打星星 👇';
+      if (recStream) { recStream.getTracks().forEach(t => t.stop()); recStream = null; }
     };
-    recog.onerror = (e) => {
-      res.innerHTML = e.error === 'no-speech' ? '没听清，再读一次试试～'
-        : (e.error === 'not-allowed' ? '需要允许使用麦克风哦（浏览器上方会弹出请求）' : '出错了，再试一次');
-      resetMic();
-    };
-    recog.onend = () => resetMic();
-  }
-  function resetMic() { const b = document.getElementById('micBtn'); b.classList.remove('recording'); b.textContent = '🎤'; }
-
-  function showScore(pct, heard) {
-    let fb, color;
-    if (pct >= 85) { fb = '太棒了！发音很标准 🎉'; color = 'var(--green)'; }
-    else if (pct >= 60) { fb = '不错，再清晰一点会更好 👍'; color = 'var(--accent)'; }
-    else { fb = '再听一遍，慢慢跟读 💪'; color = 'var(--red)'; }
-    document.getElementById('spResult').innerHTML =
-      `<div class="pct" style="color:${color}">${pct}分</div>` +
-      `<div class="fb">${fb}</div>` +
-      `<div class="heard">AI 听到你读的是：${heard || '（没听清）'}</div>`;
+    mediaRecorder.start();
+    recording = true;
+    const b = document.getElementById('recBtn');
+    b.classList.add('recording'); b.textContent = '⏹ 停止录音';
+    res.innerHTML = '🔴 正在录音……请读出单词，读完点「⏹ 停止录音」';
   }
 
-  // 用编辑距离算相似度，取多个候选里最高分
-  function scoreSpeech(target, heardList) {
-    const t = norm(target);
-    let best = 0;
-    heardList.forEach(h => {
-      const s = similarity(t, norm(h));
-      if (s > best) best = s;
-    });
-    return Math.round(best * 100);
+  function stopRecord() {
+    recording = false;
+    const b = document.getElementById('recBtn');
+    b.classList.remove('recording'); b.textContent = '🎤 开始录音';
+    try { if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop(); } catch (e) {}
   }
-  function norm(s) { return (s || '').toLowerCase().replace(/[^a-z ]/g, '').trim(); }
-  function similarity(a, b) {
-    if (!a && !b) return 1;
-    const d = levenshtein(a, b);
-    return 1 - d / Math.max(a.length, b.length, 1);
+
+  function playMyVoice() {
+    const a = document.getElementById('myAudio');
+    if (a.src) { a.currentTime = 0; a.play(); }
   }
-  function levenshtein(a, b) {
-    const m = a.length, n = b.length;
-    const dp = Array.from({length: m+1}, (_,i) => [i, ...Array(n).fill(0)]);
-    for (let j=0;j<=n;j++) dp[0][j]=j;
-    for (let i=1;i<=m;i++) for (let j=1;j<=n;j++)
-      dp[i][j] = a[i-1]===b[j-1] ? dp[i-1][j-1] : 1+Math.min(dp[i-1][j],dp[i][j-1],dp[i-1][j-1]);
-    return dp[m][n];
+
+  function setStars(n) {
+    const box = document.getElementById('rateStars');
+    box.innerHTML = '';
+    for (let i = 1; i <= 5; i++) {
+      const s = document.createElement('span');
+      s.textContent = '⭐';
+      if (i <= n) s.classList.add('on');
+      s.onclick = () => rateSelf(i);
+      box.appendChild(s);
+    }
+  }
+  function rateSelf(n) {
+    setStars(n);
+    const msg = n >= 5 ? '太棒了，发音很棒！🎉' : (n >= 3 ? '不错，继续加油 👍' : '多听几遍标准发音，慢慢跟读 💪');
+    document.getElementById('spResult').innerHTML = `你给自己打了 ${n} 颗星 · <span class="fb">${msg}</span>`;
   }
 
   // ================= 错词本 =================
