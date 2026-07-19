@@ -504,6 +504,14 @@
     speechSynthesis.speak(u);
   }
 
+  // 中文朗读（不打断前面的英文，排队接着读）
+  function speakZh(text) {
+    if (!('speechSynthesis' in window)) return;
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'zh-CN'; u.rate = 0.9;
+    speechSynthesis.speak(u);
+  }
+
   // ================= 自动播放 =================
   let playing = false, interval = 4000, timers = [];
   function clearTimers() { timers.forEach(clearTimeout); timers = []; }
@@ -519,9 +527,13 @@
   }
   function playStep() {
     if (!playing) return;
-    renderCard(); speakCurrent();
-    timers.push(setTimeout(() => { if (playing) speakCurrent(); }, 1200));
-    timers.push(setTimeout(() => { if (playing) card.classList.add('flipped'); }, interval * 0.5));
+    renderCard(); speakCurrent();                                              // 英文第一遍
+    timers.push(setTimeout(() => { if (playing) speakCurrent(); }, 1200));     // 英文第二遍
+    timers.push(setTimeout(() => {                                            // 翻中文 + 中文朗读
+      if (!playing) return;
+      card.classList.add('flipped');
+      speakZh(WORDS[idx].cn);
+    }, interval * 0.5));
     timers.push(setTimeout(() => { if (!playing) return; idx = (idx + 1) % WORDS.length; playStep(); }, interval));
   }
   function onSpeedChange() { interval = parseInt(document.getElementById('speedSel').value, 10); if (playing) { clearTimers(); playStep(); } }
