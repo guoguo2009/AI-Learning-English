@@ -148,6 +148,11 @@
         <option value="6B">六年级下 6B</option>
       </select>
     </label>
+    <label style="margin-left:12px">单元
+      <select id="unitSel" onchange="onUnitChange()">
+        <option value="all">全部单元</option>
+      </select>
+    </label>
   </div>
 
   <!-- 学单词 -->
@@ -223,270 +228,11 @@
     <div class="wrong-list" id="wrongList"></div>
   </section>
 
-  <footer>做给最棒的小朋友 ❤️ · 译林版核心词库</footer>
+  <footer>做给最棒的小朋友 ❤️ · 译林版全 8 册单词（共 991 词）</footer>
 
+<script src="words.js"></script>
 <script>
-  // ================= 译林版（牛津）小学英语词库 3A–6B =================
-  // book：册数（3A=三上, 3B=三下 …… 6B=六下）。改词照 { en, cn, book } 格式即可。
-  const ALL_WORDS = [
-    // ---------- 3A 三年级上 ----------
-    { en: "hello", cn: "你好", book: "3A" },
-    { en: "hi", cn: "嗨；你好", book: "3A" },
-    { en: "good morning", cn: "早上好", book: "3A" },
-    { en: "good afternoon", cn: "下午好", book: "3A" },
-    { en: "goodbye", cn: "再见", book: "3A" },
-    { en: "yes", cn: "是的", book: "3A" },
-    { en: "no", cn: "不；不是", book: "3A" },
-    { en: "this", cn: "这个", book: "3A" },
-    { en: "that", cn: "那个", book: "3A" },
-    { en: "friend", cn: "朋友", book: "3A" },
-    { en: "father", cn: "爸爸", book: "3A" },
-    { en: "mother", cn: "妈妈", book: "3A" },
-    { en: "brother", cn: "兄弟", book: "3A" },
-    { en: "sister", cn: "姐妹", book: "3A" },
-    { en: "look", cn: "看", book: "3A" },
-    { en: "big", cn: "大的", book: "3A" },
-    { en: "small", cn: "小的", book: "3A" },
-    { en: "red", cn: "红色的", book: "3A" },
-    { en: "yellow", cn: "黄色的", book: "3A" },
-    { en: "blue", cn: "蓝色的", book: "3A" },
-    { en: "green", cn: "绿色的", book: "3A" },
-    { en: "orange", cn: "橙色的；橙子", book: "3A" },
-    { en: "cake", cn: "蛋糕", book: "3A" },
-    { en: "pie", cn: "馅饼", book: "3A" },
-    { en: "sweet", cn: "糖果；甜的", book: "3A" },
-    { en: "egg", cn: "蛋", book: "3A" },
-    { en: "like", cn: "喜欢", book: "3A" },
-    { en: "thank you", cn: "谢谢你", book: "3A" },
-    { en: "banana", cn: "香蕉", book: "3A" },
-    { en: "apple", cn: "苹果", book: "3A" },
-    { en: "mango", cn: "芒果", book: "3A" },
-    { en: "great", cn: "太好了；巨大的", book: "3A" },
-
-    // ---------- 3B 三年级下 ----------
-    { en: "door", cn: "门", book: "3B" },
-    { en: "window", cn: "窗户", book: "3B" },
-    { en: "blackboard", cn: "黑板", book: "3B" },
-    { en: "chair", cn: "椅子", book: "3B" },
-    { en: "desk", cn: "书桌", book: "3B" },
-    { en: "open", cn: "打开", book: "3B" },
-    { en: "close", cn: "关上", book: "3B" },
-    { en: "clean", cn: "打扫；干净的", book: "3B" },
-    { en: "come in", cn: "进来", book: "3B" },
-    { en: "sit down", cn: "坐下", book: "3B" },
-    { en: "stand up", cn: "起立", book: "3B" },
-    { en: "book", cn: "书", book: "3B" },
-    { en: "schoolbag", cn: "书包", book: "3B" },
-    { en: "storybook", cn: "故事书", book: "3B" },
-    { en: "crayon", cn: "蜡笔", book: "3B" },
-    { en: "toy", cn: "玩具", book: "3B" },
-    { en: "panda", cn: "熊猫", book: "3B" },
-    { en: "in", cn: "在……里", book: "3B" },
-    { en: "on", cn: "在……上", book: "3B" },
-    { en: "under", cn: "在……下", book: "3B" },
-    { en: "behind", cn: "在……后面", book: "3B" },
-    { en: "boy", cn: "男孩", book: "3B" },
-    { en: "girl", cn: "女孩", book: "3B" },
-    { en: "please", cn: "请", book: "3B" },
-    { en: "grape", cn: "葡萄", book: "3B" },
-    { en: "juice", cn: "果汁", book: "3B" },
-    { en: "milk", cn: "牛奶", book: "3B" },
-    { en: "tea", cn: "茶", book: "3B" },
-    { en: "water", cn: "水", book: "3B" },
-    { en: "cute", cn: "可爱的", book: "3B" },
-
-    // ---------- 4A 四年级上 ----------
-    { en: "dog", cn: "狗", book: "4A" },
-    { en: "cat", cn: "猫", book: "4A" },
-    { en: "duck", cn: "鸭子", book: "4A" },
-    { en: "chicken", cn: "小鸡；鸡肉", book: "4A" },
-    { en: "horse", cn: "马", book: "4A" },
-    { en: "cow", cn: "奶牛", book: "4A" },
-    { en: "rabbit", cn: "兔子", book: "4A" },
-    { en: "how many", cn: "多少", book: "4A" },
-    { en: "pen", cn: "钢笔", book: "4A" },
-    { en: "pencil", cn: "铅笔", book: "4A" },
-    { en: "ruler", cn: "尺子", book: "4A" },
-    { en: "rubber", cn: "橡皮", book: "4A" },
-    { en: "pencil case", cn: "铅笔盒", book: "4A" },
-    { en: "have", cn: "有", book: "4A" },
-    { en: "noodles", cn: "面条", book: "4A" },
-    { en: "rice", cn: "米饭", book: "4A" },
-    { en: "fish", cn: "鱼", book: "4A" },
-    { en: "hungry", cn: "饥饿的", book: "4A" },
-    { en: "breakfast", cn: "早餐", book: "4A" },
-    { en: "lunch", cn: "午餐", book: "4A" },
-    { en: "dinner", cn: "晚餐", book: "4A" },
-    { en: "shoe", cn: "鞋子", book: "4A" },
-    { en: "sock", cn: "袜子", book: "4A" },
-    { en: "jacket", cn: "夹克衫", book: "4A" },
-    { en: "T-shirt", cn: "T恤衫", book: "4A" },
-    { en: "skirt", cn: "短裙", book: "4A" },
-    { en: "coat", cn: "外套", book: "4A" },
-    { en: "cap", cn: "帽子", book: "4A" },
-    { en: "sweater", cn: "毛衣", book: "4A" },
-    { en: "how much", cn: "多少钱", book: "4A" },
-
-    // ---------- 4B 四年级下 ----------
-    { en: "classroom", cn: "教室", book: "4B" },
-    { en: "library", cn: "图书馆", book: "4B" },
-    { en: "playground", cn: "操场", book: "4B" },
-    { en: "garden", cn: "花园", book: "4B" },
-    { en: "art room", cn: "美术室", book: "4B" },
-    { en: "music room", cn: "音乐室", book: "4B" },
-    { en: "computer room", cn: "电脑房", book: "4B" },
-    { en: "farm", cn: "农场", book: "4B" },
-    { en: "tree", cn: "树", book: "4B" },
-    { en: "flower", cn: "花", book: "4B" },
-    { en: "pear", cn: "梨", book: "4B" },
-    { en: "welcome", cn: "欢迎", book: "4B" },
-    { en: "season", cn: "季节", book: "4B" },
-    { en: "spring", cn: "春天", book: "4B" },
-    { en: "summer", cn: "夏天", book: "4B" },
-    { en: "autumn", cn: "秋天", book: "4B" },
-    { en: "winter", cn: "冬天", book: "4B" },
-    { en: "warm", cn: "温暖的", book: "4B" },
-    { en: "hot", cn: "热的", book: "4B" },
-    { en: "cool", cn: "凉爽的", book: "4B" },
-    { en: "cold", cn: "寒冷的", book: "4B" },
-    { en: "kite", cn: "风筝", book: "4B" },
-    { en: "swim", cn: "游泳", book: "4B" },
-    { en: "climb", cn: "爬", book: "4B" },
-    { en: "time", cn: "时间", book: "4B" },
-    { en: "o'clock", cn: "……点钟", book: "4B" },
-    { en: "get up", cn: "起床", book: "4B" },
-    { en: "go to school", cn: "去上学", book: "4B" },
-    { en: "go home", cn: "回家", book: "4B" },
-    { en: "go to bed", cn: "睡觉", book: "4B" },
-
-    // ---------- 5A 五年级上 ----------
-    { en: "bear", cn: "熊", book: "5A" },
-    { en: "forest", cn: "森林", book: "5A" },
-    { en: "house", cn: "房子", book: "5A" },
-    { en: "soup", cn: "汤", book: "5A" },
-    { en: "room", cn: "房间", book: "5A" },
-    { en: "hard", cn: "硬的", book: "5A" },
-    { en: "soft", cn: "柔软的", book: "5A" },
-    { en: "afraid", cn: "害怕的", book: "5A" },
-    { en: "in front of", cn: "在……前面", book: "5A" },
-    { en: "grandpa", cn: "爷爷", book: "5A" },
-    { en: "grandma", cn: "奶奶", book: "5A" },
-    { en: "cousin", cn: "堂（表）兄弟姐妹", book: "5A" },
-    { en: "uncle", cn: "叔叔", book: "5A" },
-    { en: "aunt", cn: "阿姨", book: "5A" },
-    { en: "any", cn: "一些；任何", book: "5A" },
-    { en: "hall", cn: "大厅", book: "5A" },
-    { en: "bedroom", cn: "卧室", book: "5A" },
-    { en: "kitchen", cn: "厨房", book: "5A" },
-    { en: "bathroom", cn: "浴室", book: "5A" },
-    { en: "living room", cn: "客厅", book: "5A" },
-    { en: "study", cn: "书房；学习", book: "5A" },
-    { en: "cinema", cn: "电影院", book: "5A" },
-    { en: "hospital", cn: "医院", book: "5A" },
-    { en: "supermarket", cn: "超市", book: "5A" },
-    { en: "week", cn: "星期；周", book: "5A" },
-    { en: "weekend", cn: "周末", book: "5A" },
-    { en: "busy", cn: "忙碌的", book: "5A" },
-    { en: "visit", cn: "参观；拜访", book: "5A" },
-    { en: "map", cn: "地图", book: "5A" },
-    { en: "everyone", cn: "每个人", book: "5A" },
-
-    // ---------- 5B 五年级下 ----------
-    { en: "prince", cn: "王子", book: "5B" },
-    { en: "why", cn: "为什么", book: "5B" },
-    { en: "because", cn: "因为", book: "5B" },
-    { en: "clothes", cn: "衣服", book: "5B" },
-    { en: "before", cn: "在……以前", book: "5B" },
-    { en: "late", cn: "迟的；晚的", book: "5B" },
-    { en: "pick", cn: "采；摘", book: "5B" },
-    { en: "understand", cn: "明白；理解", book: "5B" },
-    { en: "mushroom", cn: "蘑菇", book: "5B" },
-    { en: "restaurant", cn: "餐馆", book: "5B" },
-    { en: "help", cn: "帮助", book: "5B" },
-    { en: "wash", cn: "洗", book: "5B" },
-    { en: "cook", cn: "做饭；厨师", book: "5B" },
-    { en: "sweep", cn: "扫", book: "5B" },
-    { en: "hobby", cn: "爱好", book: "5B" },
-    { en: "dance", cn: "跳舞", book: "5B" },
-    { en: "sing", cn: "唱歌", book: "5B" },
-    { en: "draw", cn: "画画", book: "5B" },
-    { en: "collect", cn: "收集", book: "5B" },
-    { en: "stamp", cn: "邮票", book: "5B" },
-    { en: "grow", cn: "种植；生长", book: "5B" },
-    { en: "job", cn: "工作", book: "5B" },
-    { en: "doctor", cn: "医生", book: "5B" },
-    { en: "nurse", cn: "护士", book: "5B" },
-    { en: "worker", cn: "工人", book: "5B" },
-    { en: "farmer", cn: "农民", book: "5B" },
-    { en: "driver", cn: "司机", book: "5B" },
-    { en: "policeman", cn: "警察", book: "5B" },
-    { en: "month", cn: "月份", book: "5B" },
-    { en: "birthday", cn: "生日", book: "5B" },
-
-    // ---------- 6A 六年级上 ----------
-    { en: "king", cn: "国王", book: "6A" },
-    { en: "wear", cn: "穿；戴", book: "6A" },
-    { en: "magic", cn: "魔法的", book: "6A" },
-    { en: "laugh", cn: "笑", book: "6A" },
-    { en: "shout", cn: "喊；叫", book: "6A" },
-    { en: "through", cn: "穿过", book: "6A" },
-    { en: "fox", cn: "狐狸", book: "6A" },
-    { en: "wolf", cn: "狼", book: "6A" },
-    { en: "hen", cn: "母鸡", book: "6A" },
-    { en: "meat", cn: "肉", book: "6A" },
-    { en: "field", cn: "田地", book: "6A" },
-    { en: "ground", cn: "地面", book: "6A" },
-    { en: "holiday", cn: "假期", book: "6A" },
-    { en: "national", cn: "国家的", book: "6A" },
-    { en: "flag", cn: "旗帜", book: "6A" },
-    { en: "capital", cn: "首都", book: "6A" },
-    { en: "country", cn: "国家", book: "6A" },
-    { en: "China", cn: "中国", book: "6A" },
-    { en: "the UK", cn: "英国", book: "6A" },
-    { en: "the US", cn: "美国", book: "6A" },
-    { en: "keep", cn: "保持；饲养", book: "6A" },
-    { en: "rule", cn: "规则", book: "6A" },
-    { en: "quiet", cn: "安静的", book: "6A" },
-    { en: "litter", cn: "乱扔垃圾", book: "6A" },
-    { en: "sign", cn: "标志；标牌", book: "6A" },
-    { en: "mean", cn: "意思是", book: "6A" },
-    { en: "message", cn: "信息", book: "6A" },
-    { en: "email", cn: "电子邮件", book: "6A" },
-    { en: "internet", cn: "互联网", book: "6A" },
-    { en: "useful", cn: "有用的", book: "6A" },
-
-    // ---------- 6B 六年级下 ----------
-    { en: "tall", cn: "高的", book: "6B" },
-    { en: "taller", cn: "更高的", book: "6B" },
-    { en: "short", cn: "矮的；短的", book: "6B" },
-    { en: "long", cn: "长的", book: "6B" },
-    { en: "young", cn: "年轻的", book: "6B" },
-    { en: "old", cn: "年老的；旧的", book: "6B" },
-    { en: "strong", cn: "强壮的", book: "6B" },
-    { en: "heavy", cn: "重的", book: "6B" },
-    { en: "light", cn: "轻的；光", book: "6B" },
-    { en: "dream", cn: "梦想", book: "6B" },
-    { en: "future", cn: "未来", book: "6B" },
-    { en: "space", cn: "太空", book: "6B" },
-    { en: "moon", cn: "月亮", book: "6B" },
-    { en: "star", cn: "星星", book: "6B" },
-    { en: "travel", cn: "旅行", book: "6B" },
-    { en: "plane", cn: "飞机", book: "6B" },
-    { en: "train", cn: "火车", book: "6B" },
-    { en: "ship", cn: "轮船", book: "6B" },
-    { en: "ticket", cn: "票", book: "6B" },
-    { en: "healthy", cn: "健康的", book: "6B" },
-    { en: "ill", cn: "生病的", book: "6B" },
-    { en: "cough", cn: "咳嗽", book: "6B" },
-    { en: "fever", cn: "发烧", book: "6B" },
-    { en: "medicine", cn: "药", book: "6B" },
-    { en: "rest", cn: "休息", book: "6B" },
-    { en: "exercise", cn: "锻炼；练习", book: "6B" },
-    { en: "hope", cn: "希望", book: "6B" },
-    { en: "remember", cn: "记得", book: "6B" },
-    { en: "answer", cn: "回答；答案", book: "6B" },
-    { en: "question", cn: "问题", book: "6B" }
-  ];
+  // 全部单词从外部文件 words.js 载入（译林版全 8 册，自动生成）
 
   const BOOKS = ["3A","3B","4A","4B","5A","5B","6A","6B"];
   let selectedBook = "all";
@@ -769,14 +515,44 @@
   }
 
   // ================= 切换 & 初始化 =================
+  let selectedUnit = 'all';
+
+  function naturalUnits(book) {
+    const us = [...new Set(ALL_WORDS.filter(w => w.book === book).map(w => w.unit))];
+    us.sort((a, b) => (parseInt(a, 10) || 0) - (parseInt(b, 10) || 0) || String(a).localeCompare(String(b)));
+    return us;
+  }
+  function fillUnitOptions() {
+    const sel = document.getElementById('unitSel');
+    sel.innerHTML = '<option value="all">全部单元</option>';
+    if (selectedBook === 'all') { sel.disabled = true; return; }
+    sel.disabled = false;
+    naturalUnits(selectedBook).forEach(u => {
+      const o = document.createElement('option');
+      o.value = u; o.textContent = /^\d+$/.test(u) ? ('Unit ' + u) : u;
+      sel.appendChild(o);
+    });
+  }
   function applyBookFilter() {
-    WORDS = selectedBook === 'all' ? ALL_WORDS.slice() : ALL_WORDS.filter(w => w.book === selectedBook);
+    WORDS = ALL_WORDS.filter(w =>
+      (selectedBook === 'all' || w.book === selectedBook) &&
+      (selectedUnit === 'all' || w.unit === selectedUnit)
+    );
+    if (!WORDS.length) WORDS = ALL_WORDS.slice();
     idx = 0; spIdx = 0; currentWord = null;
     renderCard(); renderSpeak();
   }
   function onBookChange() {
     if (playing) stopAutoPlay();
     selectedBook = document.getElementById('bookSel').value;
+    selectedUnit = 'all';
+    fillUnitOptions();
+    applyBookFilter();
+    if (document.getElementById('panel-quiz').classList.contains('active')) newQuestion();
+  }
+  function onUnitChange() {
+    if (playing) stopAutoPlay();
+    selectedUnit = document.getElementById('unitSel').value;
     applyBookFilter();
     if (document.getElementById('panel-quiz').classList.contains('active')) newQuestion();
   }
@@ -800,6 +576,7 @@
   });
 
   score = parseInt(localStorage.getItem('aiwords_score') || '0', 10);
+  fillUnitOptions();
   renderCard(); renderSpeak(); updateScore(); renderStreak();
 </script>
 </body>
